@@ -12,6 +12,7 @@
     "@soryos/session": "*",
     "@soryos/filesystem": "*",
     "@soryos/github": "*",
+    "@soryos/credentials": "*",
     "@e2b/code-interpreter": "^1.0.0"
   }
 }

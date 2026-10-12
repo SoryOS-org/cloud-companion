@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessionStore } from "@soryos/session";
 import { ptyManager } from "@soryos/terminal";
+import { execInCodespace, codespaceWorkdir } from "@soryos/sandbox";
 import type { SessionData } from "@soryos/schema";
 
 /**
@@ -135,10 +136,37 @@ export async function POST(
     return NextResponse.json({
       output: "",
       isError: false,
-      cwd: term?.cwd || session.cwd || `/workspaces/project`,
+      cwd:
+        session.providerId === "github-codespaces" && session.codespaceId
+          ? term?.cwd?.startsWith("/workspaces") ? term.cwd : codespaceWorkdir(session.repository)
+          : term?.cwd || session.cwd || `/workspaces/project`,
       gitBranch: term?.gitBranch || session.branch || "main",
       gitStatus: term?.gitStatus || "clean",
       exitCode: 0,
+    });
+  }
+
+  // GitHub Codespace attached: run the command inside the real codespace
+  if (session.providerId === "github-codespaces" && session.codespaceId) {
+    const term = state.terminals.get(terminalId);
+    const startCwd =
+      term?.cwd && term.cwd.startsWith("/workspaces") ? term.cwd : codespaceWorkdir(session.repository);
+    const result = await execInCodespace({
+      codespaceName: session.codespaceId,
+      command,
+      cwd: startCwd,
+      sessionId: id,
+    });
+    if (term) term.cwd = result.cwd;
+    return NextResponse.json({
+      output: result.output.replace(/\n/g, "\r\n") + (result.output ? "\r\n" : ""),
+      isError: result.isError,
+      cwd: result.cwd,
+      exitCode: result.exitCode,
+      gitBranch: session.branch || "main",
+      gitStatus: "remote",
+      providerId: session.providerId,
+      environment: `codespace:${session.codespaceId}`,
     });
   }
 

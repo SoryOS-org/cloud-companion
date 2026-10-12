@@ -11,6 +11,7 @@ import {
 } from "../types";
 import { getGitHubManager } from "@soryos/github";
 import { GitHubRemoteFilesystem } from "@soryos/filesystem";
+import { execInCodespace, resolveGitHubToken } from "../codespace-exec";
 
 export class GitHubCodespacesProvider implements SandboxProvider {
   readonly id: ProviderId = "github-codespaces";
@@ -42,7 +43,7 @@ export class GitHubCodespacesProvider implements SandboxProvider {
   private processes = new Map<string, ProcessHandle>();
 
   private getToken(): string | null {
-    return getGitHubManager().getClient().getToken(this.sessionId) || process.env.GITHUB_TOKEN || null;
+    return resolveGitHubToken(this.sessionId);
   }
 
   async create(options?: { sessionId?: string; workspacePath?: string }): Promise<string> {
@@ -108,47 +109,24 @@ export class GitHubCodespacesProvider implements SandboxProvider {
   }
 
   async executeCommand(command: string, options?: CommandOptions): Promise<CommandResult> {
-    const startTime = Date.now();
-    const workingDir = options?.cwd || this.cwd;
-    const trimmed = command.trim();
-
-    if (trimmed === "pwd") {
-      return {
-        exitCode: 0,
-        stdout: workingDir,
-        stderr: "",
-        output: workingDir,
-        isError: false,
-        durationMs: Date.now() - startTime,
-      };
+    if (!this.sandboxId || this.sandboxId.startsWith("codespace-")) {
+      const msg = "Aucun Codespace sélectionné : choisissez un Codespace pour exécuter des commandes.";
+      return { exitCode: 1, stdout: "", stderr: msg, output: msg, isError: true, durationMs: 0 };
     }
-
-    if (trimmed === "ls" || trimmed.startsWith("ls ")) {
-      const keys = Array.from(this.files.keys());
-      const topLevel = new Set<string>();
-      for (const k of keys) {
-        const parts = k.split("/");
-        topLevel.add(parts.length > 1 ? parts[0] + "/" : parts[0]);
-      }
-      const output = Array.from(topLevel).join("  ") || "README.md";
-      return {
-        exitCode: 0,
-        stdout: output,
-        stderr: "",
-        output,
-        isError: false,
-        durationMs: Date.now() - startTime,
-      };
-    }
-
-    const output = `[GitHub Codespaces Remote Terminal]\nWorkspace: ${workingDir}\n$ ${command}\nExecuted inside GitHub Codespaces dev container.`;
+    const res = await execInCodespace({
+      codespaceName: this.sandboxId,
+      command,
+      cwd: options?.cwd || this.cwd,
+      sessionId: this.sessionId,
+    });
+    this.cwd = res.cwd;
     return {
-      exitCode: 0,
-      stdout: output,
-      stderr: "",
-      output,
-      isError: false,
-      durationMs: Date.now() - startTime,
+      exitCode: res.exitCode,
+      stdout: res.stdout,
+      stderr: res.stderr,
+      output: res.output,
+      isError: res.isError,
+      durationMs: res.durationMs,
     };
   }
 
