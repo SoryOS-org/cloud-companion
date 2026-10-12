@@ -8,6 +8,7 @@
     "@soryos/core": "*",
     "@soryos/schema": "*",
     "@soryos/execution": "*",
-    "@soryos/github": "*"
+    "@soryos/github": "*",
+    "@soryos/credentials": "*"
   }
 }
