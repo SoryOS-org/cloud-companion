@@ -52,7 +52,6 @@ export async function POST(req: NextRequest) {
       };
       return NextResponse.json({
         success: ping.success,
-        status: ping.success ? "connected" : "error",
         httpStatus: ping.httpStatus,
         message: ping.success ? `Connexion réelle réussie (${ping.model})` : ping.error,
         error: ping.error,
@@ -61,7 +60,7 @@ export async function POST(req: NextRequest) {
         model: ping.model,
         latencyMs: ping.latencyMs,
         diagnostics,
-        providerStatus: status,
+        status,
       });
     }
 
