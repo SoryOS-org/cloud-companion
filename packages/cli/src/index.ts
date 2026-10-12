@@ -32,7 +32,7 @@ ${colors.bold}USAGE:${colors.reset}
 ${colors.bold}OPTIONS:${colors.reset}
   --session <id>     Session ID (default: creates new cli session)
   --agent <agent>    Agent role: build | plan | explore | code-reviewer (default: build)
-  --model <model>    Model ID (default: gemini-2.5-flash)
+  --model <model>    Model ID (default: gemini-3.8-flash)
   --help, -h         Show this message
 `);
     return;
@@ -41,7 +41,7 @@ ${colors.bold}OPTIONS:${colors.reset}
   let prompt = "";
   let sessionId = `cli-${Date.now()}`;
   let agentId = "build";
-  let modelId = "gemini-2.5-flash";
+  let modelId = "gemini-3.8-flash";
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];

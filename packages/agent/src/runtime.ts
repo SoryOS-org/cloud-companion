@@ -1353,10 +1353,10 @@ export class AgentRuntime {
     timestamp: number,
     additionalData?: Record<string, unknown>
   ): string {
-    const messageId = `msg-${sessionId}-${this.messageCounter++}-${Date.now()}`;
+    let messageId = `msg-${sessionId}-${this.messageCounter++}-${Date.now()}`;
 
     try {
-      messageStore.add({
+      const stored = messageStore.add({
         id: messageId,
         sessionId,
         content,
@@ -1364,6 +1364,7 @@ export class AgentRuntime {
         ...additionalData,
         createdAt: timestamp
       } as any);
+      if (stored?.id) messageId = stored.id;
 
       // Emit message added event
       GlobalEventBus.emit('agent.message.added', {

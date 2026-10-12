@@ -178,7 +178,7 @@ export class GoogleProvider extends GenericAIProvider {
   }
 
   getDefaultModel(): string {
-    return "gemini-2.5-flash";
+    return "gemini-3.8-flash";
   }
 
   listModels(): ModelInfo[] {
