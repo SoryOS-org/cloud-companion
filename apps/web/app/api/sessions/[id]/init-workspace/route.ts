@@ -50,19 +50,22 @@ export async function POST(
     const { sandboxId } = await sandboxManager.getOrCreateSandbox(id, targetProviderId);
     session.sandbox_id = sandboxId;
 
-    // If GitHub repository, sync files
-    if (overrides.repository && (ws.providerId === "github-codespaces" || ws.providerId === "github-repository")) {
+    // If GitHub repository, sync the file tree (contents are loaded lazily on open)
+    let syncError: string | undefined;
+    const repo = overrides.repository || session.repository;
+    if (repo && (ws.providerId === "github-codespaces" || ws.providerId === "github-repository")) {
       try {
-        const fs = new GitHubRemoteFilesystem(id, overrides.repository, overrides.branch || "main");
+        const fs = new GitHubRemoteFilesystem(id, repo, overrides.branch || session.branch || "main");
         const entries = await fs.listFiles();
+        session.branch = fs.getBranch();
         for (const entry of entries) {
-          if (entry.type === "file") {
-            const content = await fs.readFile(entry.path);
-            session.files[entry.path] = content;
+          if (entry.type === "file" && !(entry.path in session.files)) {
+            session.files[entry.path] = "";
           }
         }
       } catch (e) {
-        console.warn("GitHub file sync warning:", e);
+        syncError = e instanceof Error ? e.message : String(e);
+        console.warn("GitHub file sync error:", e);
       }
     }
 
@@ -73,6 +76,8 @@ export async function POST(
       success: true,
       sandboxId,
       paths: Object.keys(session.files),
+      branch: session.branch,
+      ...(syncError ? { syncError } : {}),
     });
   } catch (err) {
     session.workspaceState = "WORKSPACE_ERROR";
