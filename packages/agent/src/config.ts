@@ -350,7 +350,7 @@ export const AGENT_MATRIX: AgentDefinition[] = [
     id: 'live-voice',
     name: 'Live Voice Agent',
     description: 'AI agent for real-time voice interactions and commands',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.8-flash',
     provider: 'google',
     capabilities: ['code', 'text', 'vision', 'audio', 'voice', 'realtime'],
     systemPrompt: 'You are a Live Voice Agent in SoryOS Code. You can receive voice input from users and respond with actions. Process voice commands, execute tools, and provide real-time feedback. Always acknowledge voice input and provide clear, concise responses.'
@@ -389,7 +389,7 @@ export function getAgentsByCapability(capability: string): AgentDefinition[] {
  * Get default agent definition
  */
 export function getDefaultAgent(): AgentDefinition {
-  return AGENT_MATRIX.find(agent => agent.id === 'gemini-2.5-flash') || AGENT_MATRIX[0];
+  return AGENT_MATRIX.find(agent => agent.id === 'gemini-3.8-flash') || AGENT_MATRIX[0];
 }
 
 /**

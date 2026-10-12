@@ -167,7 +167,7 @@ export class AIProviderRegistry {
       success: conn.success,
       prompt,
       response: conn.success ? "OK" : "",
-      model: options?.modelId || "gemini-2.5-flash",
+      model: options?.modelId || "gemini-3.8-flash",
       latencyMs: conn.latencyMs,
       httpStatus: conn.httpStatus,
       error: conn.success ? undefined : conn.message,

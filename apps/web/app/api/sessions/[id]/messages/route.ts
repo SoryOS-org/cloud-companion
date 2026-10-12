@@ -37,12 +37,14 @@ export async function POST(
       let assistantText = "";
       const now = () => new Date().toISOString();
       session.messages.push({ id: `user-${Date.now()}`, role: "user", content, created_at: now() });
+      const startIndex = session.messages.length;
+      let errorText = "";
       session.agent_running = true;
       sessionStore.save(session);
 
       function send(event: any) {
         if (event?.type === "text" && event.delta) assistantText += event.delta;
-        if (event?.type === "error") assistantText += `\n\n⚠️ ${event.message || "Erreur inconnue"}`;
+        if (event?.type === "error") errorText += `\n\n⚠️ ${event.message || "Erreur inconnue"}`;
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
         } catch {
@@ -62,12 +64,22 @@ export async function POST(
         const msg = err instanceof Error ? err.message : String(err);
         send({ type: "error", message: msg });
       } finally {
-        session.messages.push({
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content: assistantText.trim() || "⚠️ Aucune réponse reçue du fournisseur IA.",
-          created_at: now(),
-        });
+        // The runtime already stores the streamed assistant reply; only add one
+        // when nothing was stored, and attach provider errors so they stay visible.
+        const stored = session.messages.slice(startIndex).filter((m) => m.role === "assistant");
+        const last = stored[stored.length - 1];
+        if (last) {
+          if (assistantText.trim().length > last.content.length) last.content = assistantText.trim();
+          if (errorText) last.content = `${last.content}${errorText}`.trim();
+        } else {
+          session.messages.push({
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content:
+              `${assistantText}${errorText}`.trim() || "⚠️ Aucune réponse reçue du fournisseur IA.",
+            created_at: now(),
+          });
+        }
         session.agent_running = false;
         sessionStore.save(session);
         try {

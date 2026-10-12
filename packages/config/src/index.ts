@@ -11,7 +11,7 @@ export interface GlobalSettings {
 }
 
 export const DEFAULT_CONFIG: GlobalSettings = {
-  defaultModel: "gemini-2.5-flash",
+  defaultModel: "gemini-3.8-flash",
   defaultProviderId: "google",
   telemetryEnabled: false,
   theme: "dark",

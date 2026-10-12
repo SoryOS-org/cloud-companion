@@ -33,7 +33,7 @@ export class SessionStore {
         sandbox_state: "running",
         environment: ws.environment,
         providerId: ws.providerId,
-        model: "gemini-2.5-flash",
+        model: "gemini-3.8-flash",
         provider: "Google Gemini",
         created_at: new Date().toISOString(),
         messages: [],

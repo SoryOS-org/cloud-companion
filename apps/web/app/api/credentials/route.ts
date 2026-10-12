@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { credentialManager, PROVIDER_REGISTRY } from "@/lib/credentials/manager";
 import { aiProviderRegistry } from "@/lib/ai/registry";
+import { pingProvider } from "@soryos/agent";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -28,30 +29,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "providerId manquant" }, { status: 400 });
     }
 
-    // 1. Direct Real Connection Test
-    if (action === "test") {
-      const testResult = await aiProviderRegistry.testConnection(providerId, {
-        sessionId,
-        modelId,
-      });
+    // 1 & 2. Real connection test: sends a tiny prompt to the provider
+    if (action === "test" || action === "test_ai") {
       const status = credentialManager.getProviderStatus(providerId, sessionId);
+      const ping = await pingProvider(providerId, modelId, sessionId, prompt || undefined);
+      const authFailed = ping.httpStatus === 401 || ping.httpStatus === 403;
+      const diagnostics = {
+        providerId,
+        providerName: PROVIDER_REGISTRY[providerId]?.name || providerId,
+        credentialStatus: status?.configured ? "found" : "missing",
+        credentialSource: status?.source || "none",
+        credentialSourceLabel: status?.sourceLabel || "Non configuré",
+        runtimeStatus: "initialized",
+        endpoint: ping.endpoint,
+        model: ping.model,
+        networkStatus: ping.httpStatus ? "passed" : "failed",
+        authStatus: ping.success || !authFailed ? "passed" : "failed",
+        apiStatus: ping.success ? "passed" : "failed",
+        httpStatus: ping.httpStatus,
+        latencyMs: ping.latencyMs,
+        finalResult: ping.success ? "connected" : status?.configured ? "error" : "not_configured",
+      };
       return NextResponse.json({
-        ...testResult,
-        status,
-      });
-    }
-
-    // 2. Direct Minimal AI Prompt Test ("Réponds uniquement : OK")
-    if (action === "test_ai") {
-      const aiResult = await aiProviderRegistry.testAI(providerId, {
-        sessionId,
-        modelId,
+        success: ping.success,
+        status: ping.success ? "connected" : "error",
+        httpStatus: ping.httpStatus,
+        message: ping.success ? `Connexion réelle réussie (${ping.model})` : ping.error,
+        error: ping.error,
         prompt: prompt || "Réponds uniquement : OK",
-      });
-      const status = credentialManager.getProviderStatus(providerId, sessionId);
-      return NextResponse.json({
-        ...aiResult,
-        status,
+        response: ping.response,
+        model: ping.model,
+        latencyMs: ping.latencyMs,
+        diagnostics,
+        providerStatus: status,
       });
     }
 
