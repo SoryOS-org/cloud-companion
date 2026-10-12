@@ -39,6 +39,8 @@ export async function GET(
     try {
       const fs = new GitHubRemoteFilesystem(id, session.repository, session.branch || "main");
       const content = await fs.readFile(cleanPath);
+      session.files[cleanPath] = content;
+      sessionStore.save(session);
       return new NextResponse(content, {
         headers: { "Content-Type": "text/plain; charset=utf-8" },
       });

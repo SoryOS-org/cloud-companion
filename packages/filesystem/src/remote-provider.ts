@@ -1,4 +1,4 @@
-import { getGitHubManager } from "@soryos/github";
+import { credentialManager } from "@soryos/credentials";
 
 export interface RemoteFileEntry {
   path: string;
@@ -26,15 +26,52 @@ export class GitHubRemoteFilesystem implements RemoteFilesystemProvider {
   ) {}
 
   private getToken(): string {
-    const token = getGitHubManager().getClient().getToken(this.sessionId);
+    // The web GitHubService stores the verified token in @soryos/credentials
+    // under "github-codespaces"; fall back to env vars.
+    const resolved = credentialManager.resolveCredentials("github-codespaces", this.sessionId);
+    const token =
+      resolved?.apiKey ||
+      process.env.GITHUB_TOKEN ||
+      process.env.GITHUB_PAT ||
+      "";
     if (!token) throw new Error("Compte GitHub non connecté");
     return token;
+  }
+
+  private headers(token: string) {
+    return {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github.v3+json",
+      "User-Agent": "SoryOS-Code-IDE",
+    };
+  }
+
+  /** Resolves the real default branch when the requested one doesn't exist (main vs master). */
+  private async resolveBranch(token: string): Promise<string> {
+    const repo = this.repository.trim();
+    const check = await fetch(
+      `https://api.github.com/repos/${repo}/branches/${encodeURIComponent(this.branch)}`,
+      { headers: this.headers(token) },
+    );
+    if (check.ok) return this.branch;
+    const info = await fetch(`https://api.github.com/repos/${repo}`, { headers: this.headers(token) });
+    if (!info.ok) {
+      throw new Error(`Dépôt GitHub inaccessible (${info.status}) : ${repo}`);
+    }
+    const data = await info.json();
+    if (data.default_branch) this.branch = data.default_branch;
+    return this.branch;
+  }
+
+  getBranch(): string {
+    return this.branch;
   }
 
   // List all real files and directories using GitHub Git Trees API
   async listFiles(dirPath: string = ""): Promise<RemoteFileEntry[]> {
     const token = this.getToken();
     const cleanRepo = this.repository.trim();
+    await this.resolveBranch(token);
 
     try {
       // 1. Try recursive Git Trees API for complete repository tree
@@ -88,10 +125,12 @@ export class GitHubRemoteFilesystem implements RemoteFilesystemProvider {
         }
       }
 
-      return [];
+      throw new Error(
+        `Impossible de lister les fichiers (${treeRes.status}/${contentsRes.status}) sur ${cleanRepo}@${this.branch}`,
+      );
     } catch (e) {
       console.error("Failed to list remote files from GitHub:", e);
-      return [];
+      throw e;
     }
   }
 
