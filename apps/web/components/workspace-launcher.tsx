@@ -715,7 +715,7 @@ export function WorkspaceLauncher({ onWorkspaceOpened }: WorkspaceLauncherProps)
                                 </p>
                                 <button
                                   type="button"
-                                  onClick={() => handleOpenExistingCodespace(cs.id, cs.repositoryName, cs.branch)}
+                                  onClick={() => handleOpenExistingCodespace((cs as { name?: string }).name || cs.id, cs.repositoryName, cs.branch)}
                                   className="w-full py-1.5 px-3 text-xs font-bold text-[var(--primary-foreground)] bg-[var(--primary)] hover:opacity-90 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
                                 >
                                   <FolderGit2 className="h-3.5 w-3.5" />
