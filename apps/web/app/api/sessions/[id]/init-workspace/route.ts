@@ -76,6 +76,7 @@ export async function POST(
       success: true,
       sandboxId,
       paths: Object.keys(session.files),
+      filesCount: Object.keys(session.files).length,
       branch: session.branch,
       ...(syncError ? { syncError } : {}),
     });
