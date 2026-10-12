@@ -40,6 +40,36 @@ const PROVIDER_ALIASES: Record<string, string> = {
   claude: "anthropic",
 };
 
+/** Retired / renamed model ids mapped to their current equivalent. */
+const MODEL_ALIASES: Record<string, string> = {
+  "gemini-2.5-flash": "gemini-3.8-flash",
+  "gemini-2.5-pro": "gemini-3.8-pro",
+  "gemini-2.0-flash": "gemini-3.8-flash",
+  "codestral-2501": "codestral-latest",
+  "mistral-large-2411": "mistral-large-latest",
+};
+
+export const DEFAULT_PROVIDER_MODELS: Record<string, string> = {
+  google: "gemini-3.8-flash",
+  mistral: "codestral-latest",
+  openai: "gpt-4o-mini",
+  anthropic: "claude-sonnet-4-5",
+  deepseek: "deepseek-chat",
+  grok: "grok-2-latest",
+  openrouter: "openrouter/auto",
+};
+
+export function resolveModelId(providerId: string, model?: string | null): string {
+  const m = (model || "").trim();
+  if (!m) return DEFAULT_PROVIDER_MODELS[providerId] || "";
+  if (MODEL_ALIASES[m]) return MODEL_ALIASES[m];
+  // OpenRouter ids are stored as "openrouter/<vendor>/<model>" but the API expects "<vendor>/<model>"
+  if (providerId === "openrouter" && m.startsWith("openrouter/") && m !== "openrouter/auto") {
+    return m.slice("openrouter/".length);
+  }
+  return m;
+}
+
 /** Normalizes a provider label ("DeepSeek", "Gemini") to its registry id. */
 export function normalizeProviderId(raw?: string | null): string | undefined {
   if (!raw) return undefined;
@@ -87,6 +117,7 @@ export async function streamChat(options: StreamChatOptions): Promise<string> {
     );
   }
 
+  const model = resolveModelId(providerId, options.model);
   let full = "";
   const emit = (text: string) => {
     if (!text) return;
@@ -105,7 +136,7 @@ export async function streamChat(options: StreamChatOptions): Promise<string> {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: options.model,
+        model,
         max_tokens: 8192,
         stream: true,
         ...(system ? { system } : {}),
@@ -137,7 +168,7 @@ export async function streamChat(options: StreamChatOptions): Promise<string> {
       "Content-Type": "application/json",
       Authorization: `Bearer ${cred.apiKey}`,
     },
-    body: JSON.stringify({ model: options.model, messages: options.messages, stream: true }),
+    body: JSON.stringify({ model, messages: options.messages, stream: true }),
   });
   if (!response.ok) {
     throw new Error(`Erreur ${providerId} ${response.status} : ${(await response.text()).slice(0, 500)}`);
@@ -153,4 +184,58 @@ export async function streamChat(options: StreamChatOptions): Promise<string> {
     }
   }, options.signal);
   return full;
+}
+
+export interface ProviderPingResult {
+  success: boolean;
+  httpStatus: number;
+  model: string;
+  endpoint: string;
+  latencyMs: number;
+  response: string;
+  error?: string;
+}
+
+/** Real end-to-end check: sends a tiny prompt to the provider and reads the streamed answer. */
+export async function pingProvider(
+  rawProviderId: string,
+  model?: string,
+  sessionId?: string,
+  prompt = "Réponds uniquement : OK",
+): Promise<ProviderPingResult> {
+  const providerId = normalizeProviderId(rawProviderId) || rawProviderId;
+  const resolved = resolveModelId(providerId, model);
+  const endpoint =
+    providerId === "anthropic" ? "https://api.anthropic.com/v1" : OPENAI_COMPATIBLE_ENDPOINTS[providerId] || "";
+  const start = Date.now();
+  try {
+    const text = await streamChat({
+      providerId,
+      model: resolved,
+      sessionId,
+      messages: [{ role: "user", content: prompt }],
+      onDelta: () => {},
+    });
+    return {
+      success: text.trim().length > 0,
+      httpStatus: 200,
+      model: resolved,
+      endpoint,
+      latencyMs: Date.now() - start,
+      response: text.trim(),
+      error: text.trim() ? undefined : "Réponse vide du fournisseur",
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const status = Number(msg.match(/\b([45]\d\d)\b/)?.[1] || 0);
+    return {
+      success: false,
+      httpStatus: status || 500,
+      model: resolved,
+      endpoint,
+      latencyMs: Date.now() - start,
+      response: "",
+      error: msg,
+    };
+  }
 }
