@@ -130,7 +130,8 @@ class GitHubService {
       const items = data.codespaces || data.items || (Array.isArray(data) ? data : []);
       return items.map((cs: any) => ({
         id: cs.id || cs.name,
-        name: cs.name || cs.display_name,
+        name: cs.name,
+        displayName: cs.display_name || cs.name,
         state: cs.state || "Running",
         repositoryName: cs.repository?.full_name || repo || "repository",
         branch: cs.git_status?.ref || "main",

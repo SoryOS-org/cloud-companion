@@ -174,6 +174,7 @@ export function WorkspaceLauncher({ onWorkspaceOpened }: WorkspaceLauncherProps)
         throw new Error(initData.error || "Impossible de connecter le Remote Filesystem du Codespace.");
       }
 
+      if (initData.syncError) throw new Error(`Synchronisation GitHub échouée : ${initData.syncError}`);
       setStatusMessage(`3/3 ${initData.filesCount ?? 0} fichier(s) chargé(s). Ouverture du Workspace...`);
 
       if (onWorkspaceOpened) {
@@ -197,7 +198,7 @@ export function WorkspaceLauncher({ onWorkspaceOpened }: WorkspaceLauncherProps)
 
     try {
       const cs = await createCodespace(selectedRepo, selectedBranch, selectedMachine);
-      const codespaceId = cs?.id || `cs-${selectedRepo.replace("/", "-")}`;
+      const codespaceId = cs?.name || cs?.id || `cs-${selectedRepo.replace("/", "-")}`;
 
       const session = await createSession(
         `Codespace: ${selectedRepo}`,
@@ -226,6 +227,7 @@ export function WorkspaceLauncher({ onWorkspaceOpened }: WorkspaceLauncherProps)
         throw new Error(initData.error || "Échec d'initialisation du Remote Filesystem.");
       }
 
+      if (initData.syncError) throw new Error(`Synchronisation GitHub échouée : ${initData.syncError}`);
       setStatusMessage(`3/3 ${initData.filesCount ?? 0} fichier(s) synchronisé(s). Ouverture de l'IDE...`);
 
       if (onWorkspaceOpened) {
@@ -713,7 +715,7 @@ export function WorkspaceLauncher({ onWorkspaceOpened }: WorkspaceLauncherProps)
                                 </p>
                                 <button
                                   type="button"
-                                  onClick={() => handleOpenExistingCodespace(cs.id, cs.repositoryName, cs.branch)}
+                                  onClick={() => handleOpenExistingCodespace((cs as { name?: string }).name || cs.id, cs.repositoryName, cs.branch)}
                                   className="w-full py-1.5 px-3 text-xs font-bold text-[var(--primary-foreground)] bg-[var(--primary)] hover:opacity-90 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
                                 >
                                   <FolderGit2 className="h-3.5 w-3.5" />

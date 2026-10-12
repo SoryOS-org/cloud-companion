@@ -9,3 +9,6 @@ export * from "./provider";
 export * from "./registry";
 export * from "./manager";
 export * from "./git-sync-manager";
+
+export { execInCodespace, codespaceWorkdir, resolveGitHubToken } from "./codespace-exec";
+export type { CodespaceExecResult } from "./codespace-exec";
